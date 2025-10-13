@@ -2,12 +2,15 @@
 import os
 import numpy as np
 import tensorflow as tf
+import tf_slim
+from tf_slim.data import data_decoder
 
 _MAX_SKIP_FRAMES = 6
 _TEST_SKIP_FRAMES = 4
 _N_SKIP = 1
 
-class EventDataDecoder(tf.contrib.slim.data_decoder.DataDecoder):
+tf.compat.v1.disable_eager_execution() 
+class EventDataDecoder(data_decoder.DataDecoder):
     """
     Decoder to read events and grayscale images from TFRecords and PNG files.
     """
@@ -37,16 +40,16 @@ class EventDataDecoder(tf.contrib.slim.data_decoder.DataDecoder):
     of [pos counts, neg counts, pos last time, neg last time].
     """
     def _read_events(self, data, n_frames):
-        shape = tf.decode_raw(data['shape'], tf.uint16)
+        shape = tf.io.decode_raw(data['shape'], tf.uint16)
         shape = tf.cast(shape, tf.int32)
 
-        event_count_images = tf.decode_raw(data['event_count_images'], tf.uint16)
+        event_count_images = tf.io.decode_raw(data['event_count_images'], tf.uint16)
         event_count_images = tf.reshape(event_count_images, shape)
         event_count_images = tf.cast(event_count_images, tf.float32)
         event_count_image = event_count_images[:n_frames, :, :, :]
         event_count_image = tf.reduce_sum(event_count_image, axis=0)
 
-        event_time_images = tf.decode_raw(data['event_time_images'], tf.float32)        
+        event_time_images = tf.io.decode_raw(data['event_time_images'], tf.float32)        
         event_time_images = tf.reshape(event_time_images, shape)
         event_time_images = tf.cast(event_time_images, tf.float32)
         event_time_image = event_time_images[:n_frames, :, :, :]
@@ -69,7 +72,7 @@ class EventDataDecoder(tf.contrib.slim.data_decoder.DataDecoder):
     Reads a grayscale image from a png.
     """
     def _read_image(self, img_path):
-        img_path = tf.read_file(self._root_path + img_path)
+        img_path = tf.io.read_file(self._root_path + img_path)
         image = tf.image.decode_png(img_path, channels=1)
         image = tf.cast(image, tf.float32)
         return image
@@ -83,23 +86,23 @@ class EventDataDecoder(tf.contrib.slim.data_decoder.DataDecoder):
     def decode(self, serialized_example, items=None):
         global _MAX_SKIP_FRAMES, _TEST_SKIP_FRAMES, N_SKIP
         features = {
-            'image_iter': tf.FixedLenFeature([], tf.int64),
-            'shape': tf.FixedLenFeature([], tf.string),
-            'event_count_images': tf.FixedLenFeature([], tf.string),
-            'event_time_images': tf.FixedLenFeature([], tf.string),
-            'image_times': tf.FixedLenFeature([], tf.string),
-            'prefix': tf.FixedLenFeature([], tf.string),
-            'cam': tf.FixedLenFeature([], tf.string)
+            'image_iter': tf.io.FixedLenFeature([], tf.int64),
+            'shape': tf.io.FixedLenFeature([], tf.string),
+            'event_count_images': tf.io.FixedLenFeature([], tf.string),
+            'event_time_images': tf.io.FixedLenFeature([], tf.string),
+            'image_times': tf.io.FixedLenFeature([], tf.string),
+            'prefix': tf.io.FixedLenFeature([], tf.string),
+            'cam': tf.io.FixedLenFeature([], tf.string)
         }
         
-        data = tf.parse_single_example(serialized_example,
+        data = tf.io.parse_single_example(serialized_example,
                                        features)
         image_iter = data['image_iter']
         prefix = data['prefix']
         cam = data['cam']
-        image_times = tf.decode_raw(data['image_times'], tf.float64)
+        image_times = tf.io.decode_raw(data['image_times'], tf.float64)
 
-        if self._split is 'test':
+        if self._split =='test':
             if self._skip_frames:
                 n_frames = _TEST_SKIP_FRAMES
             else:
@@ -112,13 +115,13 @@ class EventDataDecoder(tf.contrib.slim.data_decoder.DataDecoder):
         event_image = self._read_events(data, n_frames)
         
         # Get paths to grayscale png files.
-        prev_img_path = tf.string_join([prefix, 
+        prev_img_path = tf.strings.join([prefix, 
                                         "/", 
                                         cam, 
                                         "_image", 
                                         tf.as_string(image_iter, width=5, fill='0'), 
                                         ".png"])
-        next_img_path = tf.string_join([prefix, 
+        next_img_path = tf.strings.join([prefix, 
                                         "/", 
                                         cam, 
                                         "_image", 
@@ -175,7 +178,7 @@ def read_file_paths(data_folder_path,
                                            "left_event_images.tfrecord"))
 
         n_right_ima = int(num_imas_split[1]) - _MAX_SKIP_FRAMES
-        if n_right_ima > 0 and not split is 'test':
+        if n_right_ima > 0 and not split == 'test':
             n_ima += n_right_ima
             tfrecord_paths.append(os.path.join(data_folder_path,
                                               bag_name,
@@ -204,12 +207,16 @@ def get_loader(root,
         root,
         split,
         sequence)
-  
+    import os
+    print("[data] Expecting TFRecords:")
+    for p in tfrecord_paths_np:
+        print("  -", p, "OK" if os.path.exists(p) else "MISSING")
+    
     items_to_features = {
-        'event_image': tf.FixedLenFeature([], tf.string),
-        'prev_image': tf.FixedLenFeature([], tf.string),
-        'next_image': tf.FixedLenFeature([], tf.string),
-        'timestamps': tf.FixedLenFeature([], tf.string)
+        'event_image': tf.io.FixedLenFeature([], tf.string),
+        'prev_image': tf.io.FixedLenFeature([], tf.string),
+        'next_image': tf.io.FixedLenFeature([], tf.string),
+        'timestamps': tf.io.FixedLenFeature([], tf.string)
     }
     
     items_to_descriptions = {
@@ -228,18 +235,18 @@ def get_loader(root,
                                           time_only,
                                           count_only)
 
-    dataset = tf.contrib.slim.dataset.Dataset(
+    dataset = tf_slim.dataset.Dataset(
         data_sources=tfrecord_paths_np,
-        reader=tf.TFRecordReader,
+        reader=tf.compat.v1.TFRecordReader,
         decoder=event_data_decoder,
         num_samples=n_ima,
         items_to_descriptions=items_to_descriptions)
 
     num_epochs = None
-    if split is 'test':
+    if split == 'test':
         num_epochs = 1
 
-    provider = tf.contrib.slim.dataset_data_provider.DatasetDataProvider(
+    provider = tf_slim.dataset_data_provider.DatasetDataProvider(
         dataset,
         num_readers=4,
         shuffle=shuffle,
@@ -247,7 +254,8 @@ def get_loader(root,
         common_queue_capacity=20*batch_size,
         common_queue_min=10*batch_size)
 
-    keys = items_to_features.keys()
+    # keys = items_to_features.keys()
+    keys = ['event_image', 'prev_image', 'next_image', 'timestamps']
     values = provider.get(keys)
 
     dict_batch = dict(zip(keys,values))
@@ -281,13 +289,13 @@ def get_loader(root,
                                                        axis=2)
     # Otherwise just centrally crop the images.
     else:
-        event_image = tf.image.resize_image_with_crop_or_pad(event_image, 
+        event_image = tf.image.resize_with_crop_or_pad(event_image, 
                                                              image_height, 
                                                              image_width)
-        prev_image = tf.image.resize_image_with_crop_or_pad(prev_image, 
+        prev_image = tf.image.resize_with_crop_or_pad(prev_image, 
                                                             image_height, 
                                                             image_width)
-        next_image = tf.image.resize_image_with_crop_or_pad(next_image, 
+        next_image = tf.image.resize_with_crop_or_pad(next_image, 
                                                             image_height, 
                                                             image_width)
 
@@ -302,7 +310,7 @@ def get_loader(root,
                                               capacity=20000,
                                               min_after_dequeue=8000)
     else:
-        values_batch = tf.train.batch([event_image, prev_image, next_image, timestamps],
+        values_batch = tf.compat.v1.train.batch([event_image, prev_image, next_image, timestamps],
                                       num_threads=4,
                                       batch_size=batch_size, 
                                       capacity=10*batch_size)

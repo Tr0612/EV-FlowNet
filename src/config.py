@@ -14,7 +14,7 @@ def configs():
     parser.add_argument('--training_instance',
                         type=str,
                         help="Specific saved model to load. A new one will be generated if empty.",
-                        default='')
+                        default='ev-flownet')
     parser.add_argument('--summary_path',
                         type=str,
                         help="Path to log summaries.",

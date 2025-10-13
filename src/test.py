@@ -11,6 +11,7 @@ from eval_utils import *
 from model import *
 from vis_utils import *
 
+tf.compat.v1.disable_eager_execution() 
 def drawImageTitle(img, title):
     cv2.putText(img,
                 title,
@@ -28,24 +29,24 @@ def test(sess,
          prev_image_loader,
          next_image_loader,
          timestamp_loader):
-    global_step = tf.train.get_or_create_global_step()
-    with tf.variable_scope('vs'):
+    global_step = tf.compat.v1.train.get_or_create_global_step()
+    with tf.compat.v1.variable_scope('vs'):
         flow_dict = model(event_image_loader,
-                          is_training=False,
-                          do_batch_norm=not args.no_batch_norm)
+                            is_training=False,
+                            do_batch_norm=not args.no_batch_norm)
     
     event_image = tf.reduce_sum(event_image_loader[:, :, :, :2], axis=-1, keepdims=True)
     flow_rgb, flow_norm, flow_ang_rad = flow_viz_tf(flow_dict['flow3'])
     color_wheel_rgb = draw_color_wheel_np(args.image_width, args.image_height)
 
-    sess.run(tf.global_variables_initializer())
-    sess.run(tf.local_variables_initializer())
+    sess.run(tf.compat.v1.global_variables_initializer())
+    sess.run(tf.compat.v1.local_variables_initializer())
     
-    saver = tf.train.Saver()
+    saver = tf.compat.v1.train.Saver()
     saver.restore(sess, args.load_path)
     
     coord = tf.train.Coordinator()
-    threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+    threads = tf.compat.v1.train.start_queue_runners(sess=sess, coord=coord)
 
     max_flow_sum = 0
     min_flow_sum = 0
@@ -215,10 +216,15 @@ def test(sess,
 
 def main():        
     args = configs()
+    args.load_path = "/media/thanush/New Volume/Praise/EV-FlowNet/data/log/saver"
+    args.training_instance = "ev-flownet"
+    
     args.load_path = tf.train.latest_checkpoint(os.path.join(args.load_path,
                                                              args.training_instance))
+    
+    print(f"Load Path : {args.load_path}")
 
-    sess = tf.Session()
+    sess = tf.compat.v1.Session()
     event_image_loader, prev_image_loader, next_image_loader, timestamp_loader, n_ima = get_loader(
         args.data_path,
         1,
@@ -230,6 +236,7 @@ def main():
         skip_frames=args.test_skip_frames,
         time_only=args.time_only,
         count_only=args.count_only)
+    
 
     if not args.load_path:
         raise Exception("You need to set `load_path` and `training_instance`.")

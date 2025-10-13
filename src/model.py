@@ -7,7 +7,7 @@ _BASE_CHANNELS = 64
 
 def encoder(inputs, is_training, data_format, do_batch_norm=False):
     skip_connections = {}
-    with tf.variable_scope('encoder'):
+    with tf.compat.v1.variable_scope('encoder'):
         for i in range(4):
             inputs = general_conv2d(inputs,
                                     name='conv{}'.format(i),
@@ -20,7 +20,7 @@ def encoder(inputs, is_training, data_format, do_batch_norm=False):
     return inputs, skip_connections
 
 def transition(inputs, is_training, data_format, do_batch_norm=False):
-    with tf.variable_scope('transition'):
+    with tf.compat.v1.variable_scope('transition'):
         for i in range(2):
             inputs = build_resnet_block(inputs,
                                         channelsout=8*_BASE_CHANNELS,
@@ -31,7 +31,7 @@ def transition(inputs, is_training, data_format, do_batch_norm=False):
     return inputs
 
 def decoder(inputs, skip_connection, is_training, data_format, do_batch_norm=False):   
-    with tf.variable_scope('decoder'):
+    with tf.compat.v1.variable_scope('decoder'):
         flow_dict = {}
         for i in range(4):
             # Skip connection.
@@ -62,7 +62,7 @@ def model(event_image, is_training=True, data_format=None, do_batch_norm=False):
     if data_format is None:
         data_format = ('channels_first' if tf.test.is_built_with_cuda() else 'channels_last')
 
-    with tf.variable_scope('vs'):
+    with tf.compat.v1.variable_scope('vs'):
         if data_format == 'channels_first':
             inputs = tf.transpose(event_image, [0,3,1,2])
         else:

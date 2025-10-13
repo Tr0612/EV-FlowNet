@@ -24,22 +24,21 @@ def general_conv2d(conv, name=None, channelsout=64, ksize=3, strides=2, init_fac
                    padding='SAME', do_batch_norm=False, activation=tf.nn.relu,
                    is_training=True, data_format=None):
     
-    conv = tf.layers.conv2d(conv,
+    conv = tf.compat.v1.layers.conv2d(conv,
                             channelsout,
                             ksize,
                             strides=strides,
                             padding=padding,
                             activation=activation,
-                            kernel_initializer=\
-                            tf.contrib.layers.variance_scaling_initializer(factor=init_factor),
-                            bias_initializer=tf.constant_initializer(0.0),
+                            kernel_initializer=tf.compat.v1.variance_scaling_initializer(scale=init_factor),
+                            bias_initializer=tf.compat.v1.constant_initializer(0.0),
                             data_format=data_format)
 
     if do_batch_norm:
-        conv = tf.layers.batch_normalization(conv,
+        conv = tf.compat.v1.layers.batch_normalization(conv,
                                              axis=1 if data_format=='channels_first' else -1,
                                              epsilon=1e-5,
-                                             gamma_initializer=tf.constant_initializer([0.01]),
+                                             gamma_initializer=tf.compat.v1.constant_initializer([0.01]),
                                              name=name+'_bn',
                                              training=is_training)
     return conv
@@ -53,14 +52,17 @@ def upsample_conv2d(conv, name=None, channelsout=64, ksize=3, init_factor=0.1,
     if data_format == 'channels_first':
         conv = tf.transpose(conv, [0,2,3,1])
         shape = tf.shape(conv)
-        conv = tf.image.resize_images(conv, size=[shape[1]*2, shape[2]*2],
+        conv = tf.image.resize(conv, size=[shape[1]*2, shape[2]*2],
                                       method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
         
+        pad = (ksize - 1) // 2
+        paddings = tf.constant([[0, 0],
+                                [pad, pad],
+                                [pad, pad],
+                                [0, 0]], dtype=tf.int32)
+        
         conv = tf.pad(conv,
-                      paddings = [[0,0],
-                                  [(ksize-1)/2, (ksize-1)/2],
-                                  [(ksize-1)/2, (ksize-1)/2],
-                                  [0,0]],
+                      paddings = paddings,
                       mode = 'REFLECT')
         
         conv = tf.transpose(conv, [0,3,1,2])
